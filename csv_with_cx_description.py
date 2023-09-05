@@ -73,7 +73,7 @@ def generate_report(scan_id: int, project_name: str, report_file_path: str):
     logger.info("write original report")
     default_file_name = f"/{project_name}_csv_report_with_description.csv"
     if report_file_path is None:
-        report_path = "." + default_file_name
+        report_file_path = "." + default_file_name
     path = pathlib.Path(report_file_path)
     if path.is_dir():
         report_file_path += default_file_name
@@ -94,7 +94,7 @@ def update_csv_report(cx_report_file_path, query_collections, query_description_
     Returns:
 
     """
-    logger.info("update csv report")
+    logger.info("Begin to update csv report")
     if not pathlib.Path(cx_report_file_path).exists():
         logger.info(f"report does not exist, file path: {cx_report_file_path}")
         return
@@ -104,8 +104,9 @@ def update_csv_report(cx_report_file_path, query_collections, query_description_
     logger.info("read csv file")
     new_field_name = 'CxDescription'
     csv_content = []
+    logger.info("Begin read csv report content")
     with open(cx_report_file_path, newline='', encoding="utf-8-sig") as csvfile:
-        reader = csv.DictReader(csvfile)
+        reader: csv.DictReader = csv.DictReader(csvfile)
         field_names = reader.fieldnames
         field_names = [item for item in field_names]
         field_names.append(new_field_name)
@@ -125,18 +126,17 @@ def update_csv_report(cx_report_file_path, query_collections, query_description_
                 new_ordered_dict[key] = value
             new_ordered_dict[new_field_name] = query_description
             csv_content.append(new_ordered_dict)
-    logger.info("write csv file")
+    logger.info("Finish read csv report content")
+    logger.info("Begin write csv file")
     with open(cx_report_file_path, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=field_names, dialect='unix')
         writer.writeheader()
         writer.writerows(csv_content)
+    logger.info("Finish update csv report")
 
 
-if __name__ == '__main__':
-    cli_args = get_command_line_arguments()
-    cli_args = cli_args[0]
-    file_path = cli_args.report_file_path
-    project_names = cli_args.project_names
+def process_projects(project_names):
+
     project_names = project_names.split(",") if ',' in project_names else [project_names]
     project_id_names = get_all_projects_id_name()
     query_description_function = get_cx_description_by_query_id()
@@ -152,12 +152,21 @@ if __name__ == '__main__':
             continue
         scan_id = ScansAPI.get_last_scan_id_of_a_project(project_id,
                                                          only_finished_scans=True,
-                                                         only_completed_scans=True,
+                                                         only_completed_scans=False,
                                                          only_real_scans=True,
                                                          only_full_scans=False,
                                                          only_public_scans=True
                                                          )
         logger.info(f"get scan id: {scan_id}")
         report_file_path = generate_report(scan_id=scan_id, project_name=project_name, report_file_path=file_path)
+        logger.info(f"csv report generated at location: {report_file_path}")
         update_csv_report(cx_report_file_path=report_file_path, query_collections=query_collections,
                           query_description_func=query_description_function)
+
+
+if __name__ == '__main__':
+    cli_args = get_command_line_arguments()
+    cli_args = cli_args[0]
+    file_path = cli_args.report_file_path
+    projects = cli_args.project_names
+    process_projects(project_names=projects)
